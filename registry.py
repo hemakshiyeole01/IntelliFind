@@ -61,15 +61,25 @@ def make_hybrid(lexical: Retriever, semantic: Retriever, demo: bool, **kw) -> Re
     return HybridRetriever(lexical, semantic, **kw)
 
 
+def _clean_meta(meta: dict[str, dict]) -> dict[str, dict]:
+    """Parquet gives NaN (float) for missing brand/colour/etc. Make them None."""
+    for m in meta.values():
+        for k, v in m.items():
+            if not isinstance(v, str) or not v.strip():
+                m[k] = None
+    return meta
+
+
 def load_meta(demo: bool) -> dict[str, dict]:
     """{doc_id: {product_title, product_brand, product_color, product_bullet_point}}"""
     if demo:
         return DEMO_META
     cache = ARTIFACTS / "meta.pkl"
     if cache.exists():
-        return pickle.loads(cache.read_bytes())
+        return _clean_meta(pickle.loads(cache.read_bytes()))
     from common.data import load_esci, build_docs
     _, meta = build_docs(*load_esci())
+    meta = _clean_meta(meta)
     ARTIFACTS.mkdir(parents=True, exist_ok=True)
     cache.write_bytes(pickle.dumps(meta))
     return meta
@@ -184,6 +194,6 @@ class DemoHybrid(_DemoBase):
         f, ln, sn = self._parts(query)
         e = self.lex.explain(query, doc_id)
         return {"doc_id": doc_id, "score": f.get(doc_id, 0.0), "matched_terms": e["matched_terms"],
-                "components": {"bm25": ln.get(doc_id, 0.0), "semantic": sn.get(doc_id, 0.0),
+                "components": {"lexical": ln.get(doc_id, 0.0), "semantic": sn.get(doc_id, 0.0),
                                "final": f.get(doc_id, 0.0)},
                 "note": "ranked by lexical + semantic fusion"}

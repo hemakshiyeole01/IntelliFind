@@ -18,6 +18,8 @@ class SemanticRetriever(Retriever):
         self.emb: np.ndarray | None = None   # (N, 384) float32, L2-normalised
         self.doc_ids: list[str] = []         # row i of emb belongs to doc_ids[i]
         self._pos: dict[str, int] = {}
+        self._last_q: str | None = None      # one-entry query cache
+        self._last_v: np.ndarray | None = None
 
     # ---------- encoding ----------
     def _get_model(self):
@@ -34,8 +36,10 @@ class SemanticRetriever(Retriever):
         return np.asarray(v, dtype=np.float32)
 
     def embed_query(self, query: str) -> np.ndarray:
-        """Unit-length query vector (used by hybrid / Rocchio)."""
-        return self._encode([query])[0]
+        """Unit-length query vector (used by hybrid / Rocchio). Returns a copy."""
+        if query != self._last_q:
+            self._last_v, self._last_q = self._encode([query])[0], query
+        return self._last_v.copy()
 
     # ---------- Retriever interface ----------
     def build(self, docs: dict[str, str], checkpoint_dir: Path | None = None) -> None:

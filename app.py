@@ -76,13 +76,14 @@ with tab_search:
     cols = st.columns(len(DEMOS))
     for c, d in zip(cols, DEMOS):
         c.button(d, on_click=set_q, args=(d,))
-    query = st.text_input("Search products", key="q", placeholder="e.g. Nike Air Max 270")
+    query = st.text_input("Search products", key="q", placeholder="Type a query and press Enter, e.g. Nike Air Max 270")
 
     if query.strip():
         r = get_retriever(method, alpha, fusion, expand)
-        hits = r.search(query, RETRIEVE_K)
-        brands = sorted({META.get(d, {}).get("product_brand") for d, _ in hits} - {None})
-        colors = sorted({META.get(d, {}).get("product_color") for d, _ in hits} - {None})
+        with st.spinner("Searching..."):
+            hits = r.search(query, RETRIEVE_K)
+        brands = sorted({b for d, _ in hits if isinstance(b := META.get(d, {}).get("product_brand"), str)})
+        colors = sorted({c for d, _ in hits if isinstance(c := META.get(d, {}).get("product_color"), str)})
         f1, f2 = st.columns(2)
         pick_b = f1.multiselect("Brand filter", brands)
         pick_c = f2.multiselect("Colour filter", colors)
@@ -94,7 +95,7 @@ with tab_search:
                 continue
             ex = r.explain(query, did)
             with st.container(border=True):
-                st.markdown(f"**#{rank}** &nbsp; " + highlight(m.get("product_title", did), ex["matched_terms"]),
+                st.markdown(f"**#{rank}** &nbsp; " + highlight(m.get("product_title") or did, ex["matched_terms"]),
                             unsafe_allow_html=True)
                 st.caption(f"{m.get('product_brand') or 'unknown brand'}  ·  {m.get('product_color') or 'n/a'}"
                            f"  ·  id {did}  ·  score {score:.3f}")
@@ -122,7 +123,7 @@ with tab_compare:
             col.subheader(name + (f" (alpha {alpha})" if name == "hybrid" else ""))
             for rank, (did, score) in enumerate(rr.search(st.session_state["q"], 5), 1):
                 m = META.get(did, {})
-                col.markdown(f"**{rank}.** {html.escape(str(m.get('product_title', did)))}")
+                col.markdown(f"**{rank}.** {html.escape(str(m.get('product_title') or did))}")
                 col.caption(f"{m.get('product_brand') or ''}  ·  score {score:.3f}")
 
 with tab_results:
@@ -139,8 +140,11 @@ with tab_results:
     else:
         df = pd.DataFrame(rows).sort_values("NDCG@10", ascending=False)
         score_cols = [c for c in ["P@10", "Recall@10", "MAP", "MRR", "NDCG@10"] if c in df]
-        st.dataframe(df.style.highlight_max(subset=score_cols, color="#d1fae5").format(
-            {c: "{:.4f}" for c in score_cols}), hide_index=True)
+        fmt_map = {c: "{:.4f}" for c in score_cols}
+        fmt_map["ms_per_query"] = "{:.1f}"
+        st.dataframe(df.style.highlight_max(
+            subset=score_cols, props="background-color:#166534;color:#ffffff;font-weight:bold"
+        ).format({k: v for k, v in fmt_map.items() if k in df}), hide_index=True)
     sweep = RESULTS / "alpha_sweep.csv"
     if sweep.exists():
         sw = pd.read_csv(sweep)
