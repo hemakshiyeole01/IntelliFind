@@ -10,7 +10,7 @@ All shared rules live in `Hybrid_Search_Team_Contract.pdf` (one erratum below).
 | `common/` (config, tokenizer, loader, metrics, evaluator, base interface) | Hemakshi | done |
 | Semantic retriever + embeddings (`artifacts/semantic/`) | Hemakshi | done |
 | Inverted index, TF-IDF, BM25 | Anshupriya | done |
-| Hybrid, query expansion, Rocchio, alpha sweep | Chhav | done |
+| Hybrid, query expansion, Rocchio, alpha sweep | Chhavi | done |
 | Streamlit app + registry | Hemakshi | done |
 
 ## Data
